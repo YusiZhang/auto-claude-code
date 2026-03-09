@@ -1,0 +1,73 @@
+<!-- Tasks Table -->
+<h2>Tasks</h2>
+<table>
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Dependencies</th>
+            <th>Tmux Session</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for task in tasks %}
+        <tr>
+            <td>{{ task.id }}</td>
+            <td>{{ task.name[:80] }}{% if task.name|length > 80 %}...{% endif %}</td>
+            <td>
+                <span class="badge badge-{{ task.status }}">{{ task.status }}</span>
+                {% if task.exit_code is not none and task.status in ('completed', 'failed') %}
+                    (exit {{ task.exit_code }})
+                {% endif %}
+                {% if task.last_message %}
+                    <div class="last-message">{{ task.last_message[:120] }}{% if task.last_message|length > 120 %}...{% endif %}</div>
+                {% endif %}
+            </td>
+            <td class="deps">
+                {% if task.depends_on %}
+                    {{ task.depends_on | join(', ') }}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td>
+                {% if task.status in ('running', 'needs_input') %}
+                    <code>tmux attach -t {{ tmux_session_name(task.id) }}</code>
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td>
+                {% if task.status in ('pending', 'running', 'needs_input') %}
+                    <button class="btn-danger"
+                            hx-post="/api/tasks/{{ task.id }}/cancel"
+                            hx-swap="none">Cancel</button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+        {% if not tasks %}
+        <tr><td colspan="6" style="text-align:center; color:#8b949e;">No tasks yet</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+
+<!-- Global Memory -->
+<h2>Global Memory</h2>
+<table class="memory-table">
+    <thead><tr><th>Key</th><th>Value</th><th>Updated By</th></tr></thead>
+    <tbody>
+        {% for m in memory %}
+        <tr>
+            <td>{{ m.key }}</td>
+            <td>{{ m.value[:100] }}{% if m.value|length > 100 %}...{% endif %}</td>
+            <td>Task #{{ m.updated_by_task_id or '—' }}</td>
+        </tr>
+        {% endfor %}
+        {% if not memory %}
+        <tr><td colspan="3" style="text-align:center; color:#8b949e;">No memory entries</td></tr>
+        {% endif %}
+    </tbody>
+</table>

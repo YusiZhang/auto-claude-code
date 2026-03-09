@@ -1,0 +1,26 @@
+[project]
+name = "auto-claude-code"
+version = "0.1.0"
+description = "Task orchestration layer for Claude Code CLI"
+requires-python = ">=3.12"
+dependencies = [
+    "libtmux>=0.37",
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.18",
+    "aiosqlite>=0.20",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["acc", "dashboard"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

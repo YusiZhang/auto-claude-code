@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Claude Code — Dashboard</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+        h1 { color: #58a6ff; margin-bottom: 20px; }
+        h2 { color: #8b949e; margin: 20px 0 10px; font-size: 1.1em; }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        /* Task Table */
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #21262d; }
+        th { background: #161b22; color: #8b949e; font-weight: 600; font-size: 0.85em; text-transform: uppercase; }
+        tr:hover { background: #161b22; }
+
+        /* Status badges */
+        .badge { padding: 3px 8px; border-radius: 12px; font-size: 0.8em; font-weight: 600; }
+        .badge-pending { background: #30363d; color: #8b949e; }
+        .badge-running { background: #1f3a2e; color: #3fb950; }
+        .badge-completed { background: #0d2534; color: #58a6ff; }
+        .badge-failed { background: #3d1b1b; color: #f85149; }
+        .badge-cancelled { background: #2d2000; color: #d29922; }
+        .badge-needs_input { background: #3d2d00; color: #f0c000; }
+
+        /* Last message preview */
+        .last-message { font-size: 0.8em; color: #8b949e; margin-top: 4px; font-style: italic; }
+
+        /* Forms */
+        .form-section { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+        .form-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: end; }
+        label { display: block; font-size: 0.85em; color: #8b949e; margin-bottom: 4px; }
+        input[type="text"], input[type="number"], textarea, select {
+            background: #0d1117; border: 1px solid #30363d; color: #c9d1d9;
+            padding: 6px 10px; border-radius: 6px; width: 100%; font-size: 0.9em;
+        }
+        textarea { resize: vertical; min-height: 60px; }
+        .checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 0.9em; cursor: pointer; }
+        input[type="checkbox"] { accent-color: #f85149; }
+
+        button {
+            background: #238636; color: #fff; border: none; padding: 8px 16px;
+            border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em;
+        }
+        button:hover { background: #2ea043; }
+        button.btn-danger { background: #da3633; }
+        button.btn-danger:hover { background: #f85149; }
+
+        /* Tmux command */
+        code { background: #161b22; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; color: #58a6ff; }
+
+        /* Memory table */
+        .memory-table td:first-child { font-weight: 600; color: #58a6ff; }
+
+        /* Deps */
+        .deps { font-size: 0.85em; color: #8b949e; }
+
+        .flex-grow { flex-grow: 1; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <h1>Auto Claude Code</h1>
+
+        <!-- Create Task Form (static, never replaced by polling) -->
+        <div class="form-section">
+            <h2>New Task</h2>
+            <form id="task-form" hx-post="/api/tasks" hx-swap="none" hx-on::after-request="this.reset()">
+                <div class="form-row">
+                    <div class="flex-grow">
+                        <label for="name">Task Name / Prompt</label>
+                        <input type="text" name="name" id="name" required placeholder="Describe what Claude should do...">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="flex-grow">
+                        <label for="description">Description (optional)</label>
+                        <textarea name="description" id="description" placeholder="Additional context..."></textarea>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div>
+                        <label for="depends_on">Depends On (task IDs, comma-separated)</label>
+                        <input type="text" name="depends_on" id="depends_on" placeholder="e.g. 1,2">
+                    </div>
+                    <div class="flex-grow">
+                        <label for="working_dir">Working Directory</label>
+                        <input type="text" name="working_dir" id="working_dir" list="recent-dirs"
+                               value="{{ recent_dirs[0] if recent_dirs else '' }}"
+                               placeholder="/path/to/project">
+                        <datalist id="recent-dirs">
+                            {% for dir in recent_dirs %}
+                            <option value="{{ dir }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+                    <div>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="skip_permissions" checked>
+                            Dangerous Mode (--dangerously-skip-permissions)
+                        </label>
+                    </div>
+                    <div>
+                        <button type="submit">Add Task</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Dynamic content: auto-refreshed by HTMX every 3s -->
+        <div id="live-data"
+             hx-get="/partials/live" hx-trigger="every 3s" hx-swap="innerHTML">
+            {% include "live.html" %}
+        </div>
+
+        <!-- Set Memory Form (static, never replaced by polling) -->
+        <div class="form-section" style="margin-top: 20px;">
+            <h2>Set Memory</h2>
+            <form hx-post="/api/memory" hx-swap="none" hx-on::after-request="this.reset()">
+                <div class="form-row">
+                    <div class="flex-grow">
+                        <label for="mem_key">Key</label>
+                        <input type="text" name="key" id="mem_key" required>
+                    </div>
+                    <div class="flex-grow">
+                        <label for="mem_value">Value</label>
+                        <input type="text" name="value" id="mem_value" required>
+                    </div>
+                    <div>
+                        <button type="submit">Set</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        </div>
+    <script>
+        // After task submit: refresh datalist and restore the last working dir
+        document.body.addEventListener('htmx:afterRequest', function(e) {
+            if (e.detail.elt.id === 'task-form') {
+                var input = document.getElementById('working_dir');
+                var lastVal = input.value;  // capture before reset clears it
+                fetch('/api/working-dirs')
+                    .then(function(r) { return r.json(); })
+                    .then(function(dirs) {
+                        var dl = document.getElementById('recent-dirs');
+                        dl.innerHTML = dirs.map(function(d) {
+                            return '<option value="' + d + '">';
+                        }).join('');
+                        // Restore to most recent dir (which is the one just submitted)
+                        input.value = dirs.length > 0 ? dirs[0] : '';
+                    });
+            }
+        });
+    </script>
+</body>
+</html>

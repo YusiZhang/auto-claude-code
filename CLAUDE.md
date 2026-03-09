@@ -35,37 +35,3 @@ uv run python3 -m acc status
 ```bash
 uv run python3 -m pytest tests/ -v
 ```
-
-
-<!-- ACC:START -->
-
-# Auto Claude Code — Task #1: Slow task 1
-
-This task is being managed by auto-claude-code (ACC).
-
-## Global Memory
-
-No entries yet.
-
-
-## Memory Commands
-
-To read/write shared memory that persists across tasks:
-
-```bash
-# Set a memory value
-uv run --project /Users/yusizhang/workspace/auto-claude-code python3 -m acc.memory set KEY VALUE
-
-# Get a memory value
-uv run --project /Users/yusizhang/workspace/auto-claude-code python3 -m acc.memory get KEY
-
-# List all memory
-uv run --project /Users/yusizhang/workspace/auto-claude-code python3 -m acc.memory list
-```
-
-## Important
-
-- When you complete this task, update shared memory with any important findings.
-- Use the memory commands above to share state with future tasks.
-
-<!-- ACC:END -->
